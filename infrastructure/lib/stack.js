@@ -14,21 +14,20 @@ class WebsiteStack extends Stack {
       bucketName: "huntertigerx",
       autoDeleteObjects: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      blockPublicAccess: new s3.BlockPublicAccess({
-        blockPublicAcls: true,
-        blockPublicPolicy: true,
-        ignorePublicAcls: true,
-        restrictPublicBuckets: true
-      }),
-      websiteIndexDocument: "index.html",
-      websiteErrorDocument: "index.html"
+      // Keep the bucket private with block public access
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
 
-    // Create CloudFront distribution
+    // Create CloudFront distribution with Origin Access Control
     const distribution = new cloudfront.Distribution(this, "Distribution", {
       defaultBehavior: {
-        origin: new origins.S3Origin(websiteBucket),
+        origin: new origins.S3Origin(websiteBucket, {
+          // This will automatically create and configure Origin Access Control
+          originAccessIdentity: undefined
+        }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        // Add caching optimization
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
       defaultRootObject: "index.html",
       errorResponses: [
@@ -48,13 +47,13 @@ class WebsiteStack extends Stack {
       distributionPaths: ["/*"]
     });
 
-    // Output both URLs
-    new cdk.CfnOutput(this, "S3WebsiteUrl", {
-      value: websiteBucket.bucketWebsiteUrl
-    });
-
+    // Output CloudFront URL only since S3 won't be directly accessible
     new cdk.CfnOutput(this, "DistributionDomainName", {
       value: distribution.distributionDomainName
+    });
+
+    new cdk.CfnOutput(this, "DistributionId", {
+      value: distribution.distributionId
     });
   }
 }
